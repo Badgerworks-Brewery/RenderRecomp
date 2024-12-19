@@ -22,6 +22,12 @@ enum class JalResolutionResult {
 };
 
 JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
+    // Placeholder implementation for resolve_jal
+    // TODO: Implement logic for resolving jal instructions
+    // Add your logic here
+    // *********************************************************************************************************************
+    // *********************************************** INSERT LOGIC HERE *************************************************
+    // *********************************************************************************************************************
     // Look for symbols with the target vram address
     const N64Recomp::Section& cur_section = context.sections[cur_section_index];
     const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
@@ -196,12 +202,6 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                         }
                     }
                 }
-            }
-
-            // Repoint bss relocations at their non-bss counterpart section.
-            auto find_bss_it = context.bss_section_to_section.find(reloc_section);
-            if (find_bss_it != context.bss_section_to_section.end()) {
-                reloc_section = find_bss_it->second;
             }
         }
     }
@@ -725,6 +725,11 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
         return false;
     }
 
+    // TODO: Implement logic for processing Renderware instructions
+    // Add your logic here
+    // *********************************************************************************************************************
+    // *********************************************** INSERT LOGIC HERE *************************************************
+    // *********************************************************************************************************************
     // TODO is this used?
     if (emit_link_branch) {
         fmt::print(output_file, "    after_{}:\n", link_branch_index);
