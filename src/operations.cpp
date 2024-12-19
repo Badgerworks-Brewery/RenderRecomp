@@ -1,6 +1,6 @@
 #include "operations.h"
 
-namespace N64Recomp {
+namespace Renderware {
     const std::unordered_map<InstrId, UnaryOp> unary_ops {
         { InstrId::cpu_lui,  { UnaryOpType::Lui,  Operand::Rt, Operand::ImmU16 } },
         { InstrId::cpu_mthi, { UnaryOpType::None, Operand::Hi, Operand::Rs } },
@@ -108,7 +108,7 @@ namespace N64Recomp {
         { InstrId::cpu_c_lt_d,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         { InstrId::cpu_c_nge_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         { InstrId::cpu_c_olt_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ult_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ult_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } }
 
         { InstrId::cpu_c_le_s,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
         { InstrId::cpu_c_ngt_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
@@ -117,7 +117,7 @@ namespace N64Recomp {
         { InstrId::cpu_c_le_d,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         { InstrId::cpu_c_ngt_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         { InstrId::cpu_c_ole_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ule_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ule_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } }
 
         { InstrId::cpu_c_eq_s,  { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
         { InstrId::cpu_c_ueq_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },

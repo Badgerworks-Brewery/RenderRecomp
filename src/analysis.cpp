@@ -4,7 +4,7 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 
-#include "n64recomp.h"
+#include "rwrecomp.h"
 #include "analysis.h"
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
@@ -50,7 +50,7 @@ struct RegState {
 using InstrId = rabbitizer::InstrId::UniqueId;
 using RegId = rabbitizer::Registers::Cpu::GprO32;
 
-bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recomp::Function& func, N64Recomp::FunctionStats& stats,
+bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const Renderware::Function& func, Renderware::FunctionStats& stats,
     RegState reg_states[32], std::vector<RegState>& stack_states) {
     // Temporary register state for tracking the register being operated on
     RegState temp{};
@@ -222,8 +222,8 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
     return true;
 }
 
-bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Recomp::Function& func,
-    const std::vector<rabbitizer::InstructionCpu>& instructions, N64Recomp::FunctionStats& stats) {
+bool Renderware::analyze_function(const Renderware::Context& context, const Renderware::Function& func,
+    const std::vector<rabbitizer::InstructionCpu>& instructions, Renderware::FunctionStats& stats) {
     // Create a state to track each register (r0 won't be used)
     RegState reg_states[32] {};
     std::vector<RegState> stack_states{};

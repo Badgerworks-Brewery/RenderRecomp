@@ -1,6 +1,6 @@
 #include "n64recomp.h"
 
-const std::unordered_set<std::string> N64Recomp::reimplemented_funcs{
+const std::unordered_set<std::string> Renderware::reimplemented_funcs{
     // OS initialize functions
     "__osInitialize_common",
     "osInitialize",
@@ -137,7 +137,7 @@ const std::unordered_set<std::string> N64Recomp::reimplemented_funcs{
     "__ull_to_f",
 };
 
-const std::unordered_set<std::string> N64Recomp::ignored_funcs {
+const std::unordered_set<std::string> Renderware::ignored_funcs {
     // OS initialize functions
     "__createSpeedParam",
     "__osInitialize_common",
@@ -557,7 +557,7 @@ const std::unordered_set<std::string> N64Recomp::ignored_funcs {
     "kdebugserver",
 };
 
-const std::unordered_set<std::string> N64Recomp::renamed_funcs{
+const std::unordered_set<std::string> Renderware::renamed_funcs{
     // Math
     "sincosf",
     "sinf",

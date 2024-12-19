@@ -6,7 +6,7 @@
 #include "n64recomp.h"
 #include "elfio/elfio.hpp"
 
-bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const N64Recomp::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms) {
+bool read_symbols(Renderware::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const Renderware::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<Renderware::DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
 
@@ -17,7 +17,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
     if (dumping_context) {
         // Process bss and reloc sections
         for (size_t cur_section_index = 0; cur_section_index < context.sections.size(); cur_section_index++) {
-            const N64Recomp::Section& cur_section = context.sections[cur_section_index];
+            const Renderware::Section& cur_section = context.sections[cur_section_index];
             // Check if a bss section was found that corresponds with this section.
             if (cur_section.bss_section_index != (uint16_t)-1) {
                 bss_section_to_target_section[cur_section.bss_section_index] = cur_section_index;
@@ -79,11 +79,11 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             }
 
             if (!dumping_context) {
-                if (N64Recomp::reimplemented_funcs.contains(name)) {
+                if (Renderware::reimplemented_funcs.contains(name)) {
                     reimplemented = true;
                     name = name + "_recomp";
                     ignored = true;
-                } else if (N64Recomp::ignored_funcs.contains(name)) {
+                } else if (Renderware::ignored_funcs.contains(name)) {
                     name = name + "_recomp";
                     ignored = true;
                 }
@@ -95,7 +95,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
             if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
                 if (!dumping_context) {
-                    if (N64Recomp::renamed_funcs.contains(name)) {
+                    if (Renderware::renamed_funcs.contains(name)) {
                         name = name + "_recomp";
                         ignored = false;
                     }
@@ -169,7 +169,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             // Place this symbol in the absolute symbol list if it's in the absolute section.
             uint16_t target_section_index = section_index;
             if (section_index == ELFIO::SHN_ABS) {
-                target_section_index = N64Recomp::SectionAbsolute;
+                target_section_index = Renderware::SectionAbsolute;
             }
             else if (section_index >= context.sections.size()) {
                 fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
@@ -211,7 +211,7 @@ std::optional<size_t> get_segment(const std::vector<SegmentEntry>& segments, ELF
     return std::nullopt;
 }
 
-ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfParsingConfig& elf_config, const ELFIO::elfio& elf_file) {
+ELFIO::section* read_sections(Renderware::Context& context, const Renderware::ElfParsingConfig& elf_config, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
     segments.resize(elf_file.segments.size());
@@ -343,7 +343,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
     // Process bss and reloc sections
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
-        N64Recomp::Section& section_out = context.sections[section_index];
+        Renderware::Section& section_out = context.sections[section_index];
         // Check if a bss section was found that corresponds with this section
         auto bss_find = bss_sections_by_name.find(section_out.name);
         if (bss_find != bss_sections_by_name.end()) {
@@ -379,7 +379,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     ELFIO::Elf_Sxword bad_rel_addend; // Addends aren't encoded in the reloc, so ignore this one
                     rel_accessor.get_entry(i, rel_offset, rel_symbol, rel_type, bad_rel_addend);
 
-                    N64Recomp::Reloc& reloc_out = section_out.relocs[i];
+                    Renderware::Reloc& reloc_out = section_out.relocs[i];
 
                     // Get the real full_immediate by extracting the immediate from the instruction
                     uint32_t reloc_rom_addr = section_out.rom_addr + rel_offset - section_out.ram_addr;
@@ -388,7 +388,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
                     reloc_out.address = rel_offset;
                     reloc_out.symbol_index = rel_symbol;
-                    reloc_out.type = static_cast<N64Recomp::RelocType>(rel_type);
+                    reloc_out.type = static_cast<Renderware::RelocType>(rel_type);
 
                     std::string       rel_symbol_name;
                     ELFIO::Elf64_Addr rel_symbol_value;
@@ -413,7 +413,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
                     if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
                         // Undefined sym, check the reference symbols.
-                        N64Recomp::SymbolReference sym_ref;
+                        Renderware::SymbolReference sym_ref;
                         if (!context.find_reference_symbol(rel_symbol_name, sym_ref)) {
                             fmt::print(stderr, "Undefined symbol: {}, not found in input or reference symbols!\n",
                                 rel_symbol_name);
@@ -430,7 +430,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
                         bool target_section_relocatable = context.is_reference_section_relocatable(reloc_out.target_section);
 
-                        if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32 && target_section_relocatable) {
+                        if (reloc_out.type == Renderware::RelocType::R_MIPS_32 && target_section_relocatable) {
                             fmt::print(stderr, "Cannot reference {} in a statically initialized variable as it's defined in a relocatable section!\n",
                                 rel_symbol_name);
                             return nullptr;
@@ -438,7 +438,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     }
                     else if (rel_symbol_section_index == ELFIO::SHN_ABS) {
                         reloc_out.reference_symbol = false;
-                        reloc_out.target_section = N64Recomp::SectionAbsolute;
+                        reloc_out.target_section = Renderware::SectionAbsolute;
                         rel_section_vram = 0;
                     }
                     else {
@@ -454,7 +454,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
-                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_LO16) {
+                    if (reloc_out.type == Renderware::RelocType::R_MIPS_LO16) {
                         uint32_t rel_immediate = reloc_rom_word & 0xFFFF;
                         uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
                         reloc_out.target_section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
@@ -502,7 +502,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         prev_lo = false;
                     }
 
-                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_HI16) {
+                    if (reloc_out.type == Renderware::RelocType::R_MIPS_HI16) {
                         uint32_t rel_immediate = reloc_rom_word & 0xFFFF;
                         prev_hi = true;
                         prev_hi_immediate = rel_immediate;
@@ -511,7 +511,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         prev_hi = false;
                     }
 
-                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32) {
+                    if (reloc_out.type == Renderware::RelocType::R_MIPS_32) {
                         // The reloc addend is just the existing word before relocation, so the section offset can just be the symbol's section offset.
                         // Incorporating the addend will be handled at load-time.
                         reloc_out.target_section_offset = rel_symbol_offset;
@@ -525,7 +525,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         }
                     }
 
-                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_26) {
+                    if (reloc_out.type == Renderware::RelocType::R_MIPS_26) {
                         uint32_t rel_immediate = (reloc_rom_word & 0x3FFFFFF) << 2;
                         if (reloc_out.reference_symbol) {
                             // Reference symbol relocs have their section offset already calculated, so don't apply the R_MIPS26 rule for the upper 4 bits.
@@ -543,7 +543,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             // This is safe to do as the entire full_immediate in present in relocs due to the pairing that was done earlier, so the HI16 does not
             // need to directly preceed the matching LO16 anymore.
             std::sort(section_out.relocs.begin(), section_out.relocs.end(), 
-                [](const N64Recomp::Reloc& a, const N64Recomp::Reloc& b) {
+                [](const Renderware::Reloc& a, const Renderware::Reloc& b) {
                     return a.address < b.address;
                 }
             );
@@ -553,7 +553,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
     return symtab_section;
 }
 
-static void setup_context_for_elf(N64Recomp::Context& context, const ELFIO::elfio& elf_file) {
+static void setup_context_for_elf(Renderware::Context& context, const ELFIO::elfio& elf_file) {
     context.sections.resize(elf_file.sections.size());
     context.section_functions.resize(elf_file.sections.size());
     context.functions.reserve(1024);
@@ -562,7 +562,7 @@ static void setup_context_for_elf(N64Recomp::Context& context, const ELFIO::elfi
     context.rom.reserve(8 * 1024 * 1024);
 }
 
-bool N64Recomp::Context::from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& elf_config, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out) {
+bool Renderware::Context::from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& elf_config, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out) {
     ELFIO::elfio elf_file;
 
     if (!elf_file.load(elf_file_path.string())) {

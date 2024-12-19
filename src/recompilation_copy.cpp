@@ -7,7 +7,29 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#include "Renderware.h" // Include Renderware headers
+#ifdef RW_GL3
+#include "renderware.h"  // Include Renderware header
+#endif
+#include "rwlight.h"  // Include the Light class header
+#include "rwmatrix.h"  // Include the Matrix class header
+
+namespace rw {
+
+#ifdef RW_GL3
+struct EngineOpenParams
+{
+#ifdef LIBRW_SDL2
+	SDL_Window **window;
+	bool32 fullscreen;
+#else
+	GLFWwindow **window;
+#endif
+	int width, height;
+	const char *windowtitle;
+};
+#endif
+
+// Additional Renderware integration code here...
 
 enum class JalResolutionResult {
     NoMatch,
@@ -196,6 +218,14 @@ bool process_instruction(const Renderware::Context& context, const Renderware::F
     is_branch_likely = false;
     uint32_t instr_vram = instr.getVram();
 
+    // Set initial render states
+    SetRenderState(TEXTURERASTER, 0);
+    SetRenderState(TEXTUREADDRESS, 0);
+    SetRenderState(SRCBLEND, BLENDSRCALPHA);
+    SetRenderState(DESTBLEND, BLENDINVSRCALPHA);
+
+    // Other render state setups can go here
+
     auto print_indent = [&]() {
         fmt::print(output_file, "    ");
     };
@@ -264,6 +294,54 @@ bool process_instruction(const Renderware::Context& context, const Renderware::F
                 }
             }
         }
+    }
+
+    Light* light = Light::create(LIGHTWORLD);
+    if (light) {
+        light->setColor(1.0f, 1.0f, 1.0f);  // Set light color to white
+        light->setAngle(0.0f);  // Set light angle
+
+        // Create a transformation matrix for the light
+        Matrix* lightTransform = Matrix::create();
+        V3d position = {0.0f, 0.0f, 0.0f};  // Set the position of the light
+        lightTransform->translate(&position, COMBINEREPLACE);  // Apply translation
+
+        // Integrate Renderware rendering logic
+        if (light) {
+            // Set the render state for lighting
+            SetRenderState(TEXTURERASTER, 0);
+            SetRenderState(SRCBLEND, BLENDSRCALPHA);
+            SetRenderState(DESTBLEND, BLENDINVSRCALPHA);
+
+            // Render the light and objects with the light properties
+            // Assuming you have a function to render an object with lighting
+            renderObjectWithLight(object, light);
+            renderLight(light);
+        }
+
+        // Clean up and destroy lights after rendering
+        if (light) {
+            light->destroy();
+            lightTransform->destroy();  // Destroy the transformation matrix
+        }
+    }
+
+    std::vector<Light*> lights;  // Vector to hold active lights
+
+    void createLight(float32 r, float32 g, float32 b, float32 angle) {
+        Light* light = Light::create(LIGHTWORLD);
+        if (light) {
+            light->setColor(r, g, b);  // Set light color
+            light->setAngle(angle);  // Set light angle
+            lights.push_back(light);  // Add the light to the active lights vector
+        }
+    }
+
+    void destroyLights() {
+        for (Light* light : lights) {
+            light->destroy();  // Destroy each light
+        }
+        lights.clear();  // Clear the vector
     }
 
     auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
@@ -356,6 +434,7 @@ bool process_instruction(const Renderware::Context& context, const Renderware::F
     }
 
     // Additional processing logic goes here...
+    destroyLights();
     return true;
 }
 
@@ -364,4 +443,112 @@ std::string_view ctx_gpr_prefix(int reg) {
         return "ctx->r";
     }
     return "";
+}
+
+void setAttribPointers(AttribDesc *attribDescs, int32 numAttribs) {
+    // Implement Renderware-specific attribute pointer setup
+    for (int32 i = 0; i < numAttribs; i++) {
+        AttribDesc *attribDesc = &attribDescs[i];
+        // Set the attribute pointer based on the attribute type
+        switch (attribDesc->type) {
+            case AttribType::POSITION:
+                // Set the position attribute pointer
+                attribDesc->pointer = (void*)0x10000000; // Replace with actual position data
+                break;
+            case AttribType::NORMAL:
+                // Set the normal attribute pointer
+                attribDesc->pointer = (void*)0x20000000; // Replace with actual normal data
+                break;
+            case AttribType::COLOR:
+                // Set the color attribute pointer
+                attribDesc->pointer = (void*)0x30000000; // Replace with actual color data
+                break;
+            case AttribType::TEXCOORD:
+                // Set the texture coordinate attribute pointer
+                attribDesc->pointer = (void*)0x40000000; // Replace with actual texture coordinate data
+                break;
+            default:
+                // Handle other attribute types
+                break;
+        }
+    }
+}
+
+void disableAttribPointers(AttribDesc *attribDescs, int32 numAttribs) {
+    // Implement Renderware-specific attribute pointer disabling
+    for (int32 i = 0; i < numAttribs; i++) {
+        AttribDesc *attribDesc = &attribDescs[i];
+        // Disable the attribute pointer based on the attribute type
+        switch (attribDesc->type) {
+            case AttribType::POSITION:
+                // Disable the position attribute pointer
+                attribDesc->pointer = nullptr;
+                break;
+            case AttribType::NORMAL:
+                // Disable the normal attribute pointer
+                attribDesc->pointer = nullptr;
+                break;
+            case AttribType::COLOR:
+                // Disable the color attribute pointer
+                attribDesc->pointer = nullptr;
+                break;
+            case AttribType::TEXCOORD:
+                // Disable the texture coordinate attribute pointer
+                attribDesc->pointer = nullptr;
+                break;
+            default:
+                // Handle other attribute types
+                break;
+        }
+    }
+}
+
+void setupVertexInput(InstanceDataHeader *header) {
+    // Bind the vertex buffer and set up attribute pointers
+    glBindBuffer(GL_ARRAY_BUFFER, header->vbo);
+    for (int32 i = 0; i < header->numAttribs; i++) {
+        AttribDesc *attribDesc = &header->attribDesc[i];
+        glVertexAttribPointer(attribDesc->index, attribDesc->size, attribDesc->type,
+                              attribDesc->normalized, attribDesc->stride, (void*)attribDesc->offset);
+        glEnableVertexAttribArray(attribDesc->index);
+    }
+}
+
+void teardownVertexInput(InstanceDataHeader *header) {
+    // Unbind the vertex buffer and disable attribute pointers
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    for (int32 i = 0; i < header->numAttribs; i++) {
+        AttribDesc *attribDesc = &header->attribDesc[i];
+        glDisableVertexAttribArray(attribDesc->index);
+    }
+}
+
+void drawInst_simple(InstanceDataHeader *header, InstanceData *inst) {
+    // Set up the vertex input for the instance
+    setupVertexInput(header);
+
+    // Bind the material and set texture if needed
+    if (inst->material) {
+        glBindTexture(GL_TEXTURE_2D, inst->material->textureID);
+    }
+
+    // Draw the instance using the appropriate draw call
+    glDrawArrays(GL_TRIANGLES, 0, header->numVertices);
+
+    // Tear down the vertex input after drawing
+    teardownVertexInput(header);
+}
+
+void drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst) {
+    // Set up the vertex input for the instance
+    setupVertexInput(header);
+
+    // Handle alpha testing for the instance
+    glEnable(GL_ALPHA_TEST);
+
+    // Draw the instance using the appropriate draw call
+    glDrawArrays(GL_TRIANGLES, 0, header->numVertices);
+
+    // Tear down the vertex input after drawing
+    teardownVertexInput(header);
 }

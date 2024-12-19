@@ -3,7 +3,7 @@
 #include <toml++/toml.hpp>
 #include "fmt/format.h"
 #include "config.h"
-#include "n64recomp.h"
+#include "renderware.h"
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
     if (!child.empty()) {
@@ -12,8 +12,8 @@ std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, c
     return child;
 }
 
-std::vector<N64Recomp::ManualFunction> get_manual_funcs(const toml::array* manual_funcs_array) {
-    std::vector<N64Recomp::ManualFunction> ret;
+std::vector<Renderware::ManualFunction> get_manual_funcs(const toml::array* manual_funcs_array) {
+    std::vector<Renderware::ManualFunction> ret;
 
     // Reserve room for all the funcs in the map.
     ret.reserve(manual_funcs_array->size());
@@ -104,8 +104,8 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
     return ignored_funcs;
 }
 
-std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::table* patches_data) {
-    std::vector<N64Recomp::FunctionSize> func_sizes{};
+std::vector<Renderware::FunctionSize> get_func_sizes(const toml::table* patches_data) {
+    std::vector<Renderware::FunctionSize> func_sizes{};
 
     // Check if the func size array exists.
     const toml::node_view funcs_data = (*patches_data)["function_sizes"];
@@ -143,8 +143,8 @@ std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::table* patches_d
     return func_sizes;
 }
 
-std::vector<N64Recomp::InstructionPatch> get_instruction_patches(const toml::table* patches_data) {
-    std::vector<N64Recomp::InstructionPatch> ret;
+std::vector<Renderware::InstructionPatch> get_instruction_patches(const toml::table* patches_data) {
+    std::vector<Renderware::InstructionPatch> ret;
 
     // Check if the instruction patch array exists.
     const toml::node_view insn_patch_data = (*patches_data)["instruction"];
@@ -172,7 +172,7 @@ std::vector<N64Recomp::InstructionPatch> get_instruction_patches(const toml::tab
                     throw toml::parse_error("Instruction patch is not word-aligned", el.source());
                 }
 
-                ret.push_back(N64Recomp::InstructionPatch{
+                ret.push_back(Renderware::InstructionPatch{
                     .func_name = func_name.value(),
                     .vram = (int32_t)vram.value(),
                     .value = value.value(),
@@ -187,8 +187,8 @@ std::vector<N64Recomp::InstructionPatch> get_instruction_patches(const toml::tab
     return ret;
 }
 
-std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patches_data) {
-    std::vector<N64Recomp::FunctionHook> ret;
+std::vector<Renderware::FunctionHook> get_function_hooks(const toml::table* patches_data) {
+    std::vector<Renderware::FunctionHook> ret;
 
     // Check if the function hook array exists.
     const toml::node_view func_hook_data = (*patches_data)["hook"];
@@ -216,7 +216,7 @@ std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patch
                     throw toml::parse_error("before_vram is not word-aligned", el.source());
                 }
 
-                ret.push_back(N64Recomp::FunctionHook{
+                ret.push_back(Renderware::FunctionHook{
                     .func_name = func_name.value(),
                     .before_vram = before_vram.has_value() ? (int32_t)before_vram.value() : 0,
                     .text = text.value(),
@@ -231,7 +231,7 @@ std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patch
     return ret;
 }
 
-N64Recomp::Config::Config(const char* path) {
+Renderware::Config::Config(const char* path) {
     // Start this config out as bad so that it has to finish parsing without errors to be good.
     entrypoint = 0;
     bad = true;
@@ -437,27 +437,27 @@ N64Recomp::Config::Config(const char* path) {
     bad = false;
 }
 
-const std::unordered_map<std::string, N64Recomp::RelocType> reloc_type_name_map {
-    { "R_MIPS_NONE", N64Recomp::RelocType::R_MIPS_NONE },
-    { "R_MIPS_16", N64Recomp::RelocType::R_MIPS_16 },
-    { "R_MIPS_32", N64Recomp::RelocType::R_MIPS_32 },
-    { "R_MIPS_REL32", N64Recomp::RelocType::R_MIPS_REL32 },
-    { "R_MIPS_26", N64Recomp::RelocType::R_MIPS_26 },
-    { "R_MIPS_HI16", N64Recomp::RelocType::R_MIPS_HI16 },
-    { "R_MIPS_LO16", N64Recomp::RelocType::R_MIPS_LO16 },
-    { "R_MIPS_GPREL16", N64Recomp::RelocType::R_MIPS_GPREL16 },
+const std::unordered_map<std::string, Renderware::RelocType> reloc_type_name_map {
+    { "R_MIPS_NONE", Renderware::RelocType::R_MIPS_NONE },
+    { "R_MIPS_16", Renderware::RelocType::R_MIPS_16 },
+    { "R_MIPS_32", Renderware::RelocType::R_MIPS_32 },
+    { "R_MIPS_REL32", Renderware::RelocType::R_MIPS_REL32 },
+    { "R_MIPS_26", Renderware::RelocType::R_MIPS_26 },
+    { "R_MIPS_HI16", Renderware::RelocType::R_MIPS_HI16 },
+    { "R_MIPS_LO16", Renderware::RelocType::R_MIPS_LO16 },
+    { "R_MIPS_GPREL16", Renderware::RelocType::R_MIPS_GPREL16 },
 };
 
-N64Recomp::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
+Renderware::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
     auto find_it = reloc_type_name_map.find(reloc_type_name);
     if (find_it != reloc_type_name_map.end()) {
         return find_it->second;
     }
-    return N64Recomp::RelocType::R_MIPS_NONE;
+    return Renderware::RelocType::R_MIPS_NONE;
 }
 
-bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, N64Recomp::Context& out, bool with_relocs) {
-    N64Recomp::Context ret{};
+bool Renderware::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, Renderware::Context& out, bool with_relocs) {
+    Renderware::Context ret{};
 
     try {
         const toml::table config_data = toml::parse_file(symbol_file_path.u8string());
@@ -611,14 +611,14 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
     return true;
 }
 
-bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& reference_context) {
+bool Renderware::Context::import_reference_context(const Renderware::Context& reference_context) {
     reference_sections.resize(reference_context.sections.size());
     reference_symbols.reserve(reference_context.functions.size());
 
     // Copy the reference context's sections into the real context's reference sections. 
     for (size_t section_index = 0; section_index < reference_context.sections.size(); section_index++) {
-        const N64Recomp::Section& section_in = reference_context.sections[section_index];
-        N64Recomp::ReferenceSection& section_out = reference_sections[section_index];
+        const Renderware::Section& section_in = reference_context.sections[section_index];
+        Renderware::ReferenceSection& section_out = reference_sections[section_index];
 
         section_out.rom_addr = section_in.rom_addr;
         section_out.ram_addr = section_in.ram_addr;
@@ -627,7 +627,7 @@ bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
     }
 
     // Copy the functions from the reference context into the reference context's function map.
-    for (const N64Recomp::Function& func_in: reference_context.functions) {
+    for (const Renderware::Function& func_in: reference_context.functions) {
         if (!add_reference_symbol(func_in.name, func_in.section_index, func_in.vram, true)) {
             return false;
         }
@@ -637,7 +637,7 @@ bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
 }
 
 // Reads a data symbol file and adds its contents into this context's reference data symbols.
-bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& data_syms_file_path) {
+bool Renderware::Context::read_data_reference_syms(const std::filesystem::path& data_syms_file_path) {
     try {
         const toml::table data_syms_file_data = toml::parse_file(data_syms_file_path.u8string());
         const toml::node_view data_sections_value = data_syms_file_data["section"];
@@ -668,7 +668,7 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
 
                 uint16_t ref_section_index;
                 if (!rom_addr.has_value()) {
-                    ref_section_index = N64Recomp::SectionAbsolute; // Non-relocatable bss section or absolute symbols, mark this as an absolute symbol
+                    ref_section_index = Renderware::SectionAbsolute; // Non-relocatable bss section or absolute symbols, mark this as an absolute symbol
                 }
                 else if (rom_addr.value() > 0xFFFFFFFF) {
                     throw toml::parse_error("Section has invalid ROM address", el.source());
@@ -680,7 +680,7 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                         ref_section_index = find_section_it->second;
                     }
                     else {
-                        ref_section_index = N64Recomp::SectionAbsolute; // Not in the function symbol reference file, so this section can be treated as non-relocatable.
+                        ref_section_index = Renderware::SectionAbsolute; // Not in the function symbol reference file, so this section can be treated as non-relocatable.
                     }
                 }
 
@@ -690,10 +690,10 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                     .size = 0,
                     .relocatable = 0
                 };
-                const ReferenceSection& ref_section = ref_section_index == N64Recomp::SectionAbsolute ? dummy_absolute_section : this->reference_sections[ref_section_index];
+                const ReferenceSection& ref_section = ref_section_index == Renderware::SectionAbsolute ? dummy_absolute_section : this->reference_sections[ref_section_index];
 
                 // Sanity check this section against the matching one in the function reference symbol file if one exists.
-                if (ref_section_index != N64Recomp::SectionAbsolute) {
+                if (ref_section_index != Renderware::SectionAbsolute) {
                     if (ref_section.ram_addr != vram_addr.value()) {
                         throw toml::parse_error("Section vram address differs from matching ROM address section in the function symbol reference file", el.source());
                     }
@@ -741,4 +741,3 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
 
     return true;
 }
-
